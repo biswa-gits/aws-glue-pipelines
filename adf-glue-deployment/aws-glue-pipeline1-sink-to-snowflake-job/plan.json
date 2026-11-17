@@ -1,0 +1,114 @@
+{
+  "glue_job_name": "adf-pipeline1-sink-to-snowflake",
+  "job_type": "glue_pyspark",
+  "description": "Read customers CSV/Delimited from Azure Blob (migrated to S3), filter CUSTOMER_ID == 'C0011', and write to Snowflake via JDBC using credentials from Secrets Manager.",
+  "sources": [
+    {
+      "name": "ds_customers_src",
+      "kind": "s3_csv",
+      "details": "Read from S3 path provided via --SOURCE_PATH (S3 location containing customer delimited files). Use header inference/explicit schema with columns CUSTOMER_ID, CUSTOMER_NAME, EMAIL, PHONE, STATE, CREATED_DATE, SOURCE_SYSTEM. Configure ignoreMissingFiles=false."
+    }
+  ],
+  "sinks": [
+    {
+      "name": "Snowflake_Sink",
+      "kind": "other",
+      "write_mode": "append",
+      "details": "Write to Snowflake using Snowflake JDBC via AWS Secrets Manager for credentials. Use Snowflake staging via JDBC connector (copy via Snowflake PUT is optional). Target table provided via --SINK_TABLE. Use insert-only semantics (no updates/upserts)."
+    }
+  ],
+  "job_parameters": [
+    {
+      "name": "--SOURCE_PATH",
+      "description": "S3 prefix containing the source customer files (e.g. s3://bucket/path/).",
+      "default": "s3://BUCKET/prefix/"
+    },
+    {
+      "name": "--SINK_TABLE",
+      "description": "Snowflake target table name (database.schema.table).",
+      "default": "DB.SCHEMA.CUSTOMERS"
+    },
+    {
+      "name": "--SNOWFLAKE_SECRET_ARN",
+      "description": "ARN of the Secrets Manager secret containing Snowflake credentials (user, password, account, role, warehouse, database, host).",
+      "default": "arn:aws:secretsmanager:region:acct:secret:glue/adf/snowflake"
+    },
+    {
+      "name": "--TEMP_DIR",
+      "description": "S3 temp dir for Glue/Snowflake staging (if required).",
+      "default": "s3://BUCKET/tmp/"
+    }
+  ],
+  "secrets": [
+    {
+      "name": "glue/adf/snowflake",
+      "description": "Holds Snowflake credentials: user, password, account identifier, warehouse, role, database, host. Used by Glue job to connect to Snowflake via JDBC."
+    },
+    {
+      "name": "glue/adf/blobstorage",
+      "description": "Optional: if any connector requires storage account credentials during migration; originally Azure Blob connection string. Prefer copying files into S3 and then removing need for this secret."
+    }
+  ],
+  "worker_config": {
+    "glue_version": "4.0",
+    "worker_type": "G.1X",
+    "number_of_workers": 2,
+    "timeout_minutes": 60,
+    "max_retries": 0,
+    "max_concurrent_runs": 1
+  },
+  "iam_permissions": [
+    {
+      "sid": "S3ReadSource",
+      "actions": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "resource_kind": "data_bucket",
+      "reason": "Read source CSV files and list prefix in S3 (--SOURCE_PATH)."
+    },
+    {
+      "sid": "S3TempWrite",
+      "actions": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "resource_kind": "scripts_bucket",
+      "reason": "Write and read temporary staging files used by Glue/Snowflake connector in --TEMP_DIR."
+    },
+    {
+      "sid": "SecretsManagerAccess",
+      "actions": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ],
+      "resource_kind": "secrets",
+      "reason": "Retrieve Snowflake credentials from Secrets Manager."
+    },
+    {
+      "sid": "GlueLogs",
+      "actions": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "resource_kind": "logs",
+      "reason": "Write Glue job logs to CloudWatch."
+    }
+  ],
+  "requires_orchestration": false,
+  "orchestration_notes": "",
+  "expected_data_files": [
+    "product.csv"
+  ],
+  "risks": [
+    "Confirm source files are copied from Azure Blob to S3 and path provided in --SOURCE_PATH before running.",
+    "Validate Snowflake JDBC connectivity details and network egress (VPC, NAT) \u2014 secret must contain correct account/host and warehouse info.",
+    "Confirm data types mapping for CREATED_DATE (date) and any timezone conversions; Glue schema drift settings may differ from ADF.",
+    "Ensure write semantics: original dataflow was insert-only; migration must not perform updates/upserts. Confirm target table permissions and existence.",
+    "If large volumes exist, current 2 workers may be insufficient; monitor job and scale workers if needed."
+  ],
+  "source_adf_pipeline": "pipeline1_sink_to_snowflake",
+  "control_flow_activities": []
+}

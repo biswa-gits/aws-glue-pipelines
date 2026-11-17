@@ -1,0 +1,71 @@
+{
+  "generated_at_utc": "2026-08-28T11:14:31.585460+00:00",
+  "generator": "ADF_to_AWS_Glue_App",
+  "conversion_model": "openai-gpt-5-mini",
+  "source": {
+    "factory_name": "adf-glue-demo-df",
+    "arm_templates": [
+      "arm_template (1).zip:ARMTemplateForFactory.json",
+      "arm_template (1).zip:factory/adf-glue-demo-df_ARMTemplateForFactory.json"
+    ],
+    "inventory": {
+      "pipelines": 3,
+      "datasets": 4,
+      "linked_services": 3,
+      "dataflows": 2,
+      "triggers": 2
+    }
+  },
+  "deployment": {
+    "project_name": "adf-glue-migration",
+    "core_stack_name": "adf-glue-migration-core",
+    "bucket_name": "my-adf-glue-migration-bucket",
+    "aws_region": "us-east-1",
+    "secret_prefix": "glue/adf/"
+  },
+  "totals": {
+    "converted": 1,
+    "clean": 1,
+    "warnings": 0,
+    "failed": 0,
+    "needs_orchestration": 0
+  },
+  "pipelines": [
+    {
+      "adf_pipeline": "pipeline1_sink_to_snowflake",
+      "bundle": "aws-glue-pipeline1-sink-to-snowflake-job",
+      "glue_job_name": "adf-pipeline1-sink-to-snowflake",
+      "job_type": "glue_pyspark",
+      "worker_config": {
+        "glue_version": "4.0",
+        "worker_type": "G.1X",
+        "number_of_workers": 2,
+        "timeout_minutes": 60,
+        "max_retries": 0,
+        "max_concurrent_runs": 1
+      },
+      "job_parameters": [
+        "--SOURCE_PATH",
+        "--SINK_TABLE",
+        "--SNOWFLAKE_SECRET_ARN",
+        "--TEMP_DIR"
+      ],
+      "secrets": [
+        {
+          "name": "glue/adf/snowflake",
+          "description": "Holds Snowflake credentials: user, password, account identifier, warehouse, role, database, host. Used by Glue job to connect to Snowflake via JDBC."
+        },
+        {
+          "name": "glue/adf/blobstorage",
+          "description": "Optional: if any connector requires storage account credentials during migration; originally Azure Blob connection string. Prefer copying files into S3 and then removing need for this secret."
+        }
+      ],
+      "requires_orchestration": false,
+      "status": "ok",
+      "repair_rounds": 0,
+      "errors": [],
+      "warnings": [],
+      "elapsed_seconds": 28.76
+    }
+  ]
+}

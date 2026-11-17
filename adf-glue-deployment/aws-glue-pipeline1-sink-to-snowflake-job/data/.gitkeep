@@ -1,0 +1,2 @@
+# Place the source data files this job reads here, then upload with:
+#   aws s3 cp data/ s3://my-adf-glue-migration-bucket/data/pipeline1-sink-to-snowflake/ --recursive
